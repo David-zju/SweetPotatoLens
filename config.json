@@ -1,0 +1,12 @@
+{
+  "api_base": "http://localhost:11434/v1",
+  "api_key": "ollama",
+  "model_name": "qwen3.5:35b",
+  "vision_model_name": "qwen3-vl:32b",
+  "enable_vision": false,
+  "vision_text_threshold": 100,
+  "num_notes_to_fetch": 3,
+  "headless_browser": true,
+  "default_prompt": "西湖一日游必去景点与美食",
+  "save_summary_to_file": true
+}
