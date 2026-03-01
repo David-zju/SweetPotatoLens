@@ -1,8 +1,11 @@
-from playwright.sync_api import sync_playwright
 import os
+from playwright.sync_api import sync_playwright
+
+# 获取当前脚本所在目录的绝对路径
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # 保存登录状态的文件路径
-STATE_FILE = "xhs_state.json"
+STATE_FILE = os.path.join(BASE_DIR, "xhs_state.json")
 
 
 def login_and_save_state():

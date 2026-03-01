@@ -2,10 +2,29 @@ import asyncio
 from playwright.async_api import async_playwright
 import json
 import os
+import sys
 
-# 登录状态文件路径
-STATE_FILE = "xhs_state.json"
-CONFIG_FILE = "config.json"
+# 获取当前脚本所在目录的绝对路径
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# 登录状态和配置文件绝对路径
+STATE_FILE = os.path.join(BASE_DIR, "xhs_state.json")
+CONFIG_FILE = os.path.join(BASE_DIR, "config.json")
+
+
+def safe_print(text):
+    """
+    在 Windows 下安全地打印包含 Emoji 的文本。
+    如果遇到编码错误（如 GBK 终端），则尝试忽略无法编码的字符。
+    对于 MCP 服务，这能有效防止服务因为打印 Emoji 而崩溃。
+    """
+    try:
+        print(text)
+    except UnicodeEncodeError:
+        try:
+            print(text.encode("gbk", "ignore").decode("gbk"))
+        except Exception:
+            pass  # 极端情况下直接静音，不影响主流程
 
 
 def get_config():
@@ -53,7 +72,7 @@ async def fetch_note(context, link, keyword):
         except Exception:
             pass
 
-        print(f"    📝 [关键词: {keyword}] 成功抓取: {title[:15]}...")
+        safe_print(f"    📝 [关键词: {keyword}] 成功抓取: {title[:15]}...")
         return {
             "keyword": keyword,
             "url": link,
@@ -62,7 +81,7 @@ async def fetch_note(context, link, keyword):
             "image_url": image_url,  # 加入字典返回
         }
     except Exception as e:
-        print(f"    ❌ 抓取单篇笔记失败: {link} - {e}")
+        safe_print(f"    ❌ 抓取单篇笔记失败: {link} - {e}")
         return None
     finally:
         await page.close()  # 必须关闭，释放内存
@@ -75,7 +94,7 @@ async def search_keyword(context, keyword, num_notes):
     page = await context.new_page()
     try:
         search_url = f"https://www.xiaohongshu.com/search_result?keyword={keyword}&source=web_search_result_notes"
-        print(f"🔍 正在搜索关键词: '{keyword}'...")
+        safe_print(f"🔍 正在搜索关键词: '{keyword}'...")
         await page.goto(search_url, wait_until="domcontentloaded")
 
         # 等待搜索结果出现
@@ -94,7 +113,7 @@ async def search_keyword(context, keyword, num_notes):
                 )
                 note_links.append(full_url)
 
-        print(
+        safe_print(
             f"🔗 [关键词: {keyword}] 找到 {len(note_links)} 篇笔记链接，开始并行抓取..."
         )
 
@@ -106,7 +125,7 @@ async def search_keyword(context, keyword, num_notes):
         return [r for r in results if r is not None]
 
     except Exception as e:
-        print(f"❌ 搜索或页面加载失败 ({keyword}): {e}")
+        safe_print(f"❌ 搜索或页面加载失败 ({keyword}): {e}")
         return []
     finally:
         await page.close()
@@ -120,10 +139,12 @@ async def search_and_extract_multiple(keywords, num_notes=3):
     is_headless = config.get("headless_browser", True)
 
     if not os.path.exists(STATE_FILE):
-        print(f"❌ 找不到登录状态文件 {STATE_FILE}，请先运行 login_xhs.py 进行登录！")
+        safe_print(
+            f"❌ 找不到登录状态文件 {STATE_FILE}，请先运行 login_xhs.py 进行登录！"
+        )
         return None
 
-    print(f"\n🚀 启动浏览器，将开启 {len(keywords)} 个搜索任务...\n")
+    safe_print(f"\n🚀 启动浏览器，将开启 {len(keywords)} 个搜索任务...\n")
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=is_headless)
@@ -150,5 +171,5 @@ async def search_and_extract_multiple(keywords, num_notes=3):
 
         await browser.close()
 
-    print(f"\n🎉 抓取完成！共收集并去重得到 {len(unique_results)} 篇笔记。")
+    safe_print(f"\n🎉 抓取完成！共收集并去重得到 {len(unique_results)} 篇笔记。")
     return unique_results

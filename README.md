@@ -66,3 +66,44 @@ python agent.py
 ```
 
 程序启动后，将提示输入需要搜索的内容。随后程序将依次执行关键词生成、并发抓取、条件图像解析（如已开启）以及最终内容汇总。运行结果将打印在控制台中，并根据配置决定是否保存为 Markdown 文件。
+
+## MCP 服务集成
+
+本项目支持模型上下文协议 (Model Context Protocol, MCP)。通过配置，可将本工具直接接入支持 MCP 的 AI 客户端（如 Claude Desktop, Cursor 等）。
+
+在 MCP 模式下，本服务仅负责提取小红书的图文原始数据并返回给客户端。**生成搜索词和最终内容总结的工作将由你的 AI 客户端（如 Claude）自行完成。**
+
+### 配置方法 (以 Claude Desktop 为例)
+
+1. **安装 MCP 依赖**:
+   ```bash
+   pip install mcp
+   ```
+
+2. **验证登录凭证**:
+   请确保已至少运行过一次 `python login_xhs.py`，并在项目根目录下存在 `xhs_state.json` 文件。
+
+3. **修改客户端配置**:
+   打开 Claude Desktop 的 MCP 配置文件（通常位于 `%APPDATA%\Claude\claude_desktop_config.json`），添加以下配置。**请务必替换为你本地真实的 Python 路径和项目路径**：
+
+   ```json
+   {
+     "mcpServers": {
+       "SweetPotatoLens": {
+         "command": "C:/path/to/your/python.exe",
+         "args": [
+           "C:/path/to/your/Dev/xhs-agent/mcp_server.py"
+         ]
+       }
+     }
+   }
+   ```
+
+4. **使用工具**:
+   重启客户端后，在对话框输入“帮我在小红书搜索xxx”，客户端便会自动调用此工具收集数据。
+
+### MCP 模式功能说明
+
+*   **智能能力自省与图文协同**: 本工具在 MCP 模式下具备一项独特的高级特性。在客户端 LLM（如 Claude、GPT-4o）调用此工具时，工具会要求其进行能力自省。如果客户端 LLM 评估自己具备原生读取 Base64 格式图像的能力，它便可声明 `client_supports_vision=True`。随后，爬虫会自动识别那些“以图为主、文本极少”的笔记，并在后台帮大模型把图片下载好、转码成 Base64 打包在 JSON 返回值中，由客户端大模型亲自提取图内信息。这样不仅能最大化利用前端高级大模型（如 Claude 3.5 Sonnet）的识图能力，也免去了客户端无法访问小红书防盗链图片的痛点。
+*   **运行状态不可见问题**: MCP 模式运行在系统后台，默认不会在控制台打印进度。如果需要观察抓取时的实际动作，可在 `config.json` 中将 `"headless_browser"` 改为 `false`。
+*   **响应速度调整**: 如果客户端调用时等待时间过长，可通过在 `config.json` 中调低 `num_notes_to_fetch`，或将 `"enable_vision"` 设置为 `false` 来加快数据返回速度。
